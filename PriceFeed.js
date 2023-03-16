@@ -4,8 +4,12 @@ const Web3 = require("web3");
 // Replace with your Ethereum node URL
 const WEB3_PROVIDER_URL = "https://mainnet.infura.io/v3/YOUR-PROJECT-ID";
 
-// Array of Uniswap V3 pool addresses to track
-const POOL_ADDRESSES = ["0x123...", "0x456...", "0x789..."];
+// Object with pool addresses as keys and arrays of target prices as values
+const POOL_TARGET_PRICES = {
+  "0x123...": [100, 200],
+  "0x456...": [300, 400],
+  "0x789...": [500, 600],
+};
 
 // GraphQL query to fetch pool data
 const query = gql`
@@ -37,6 +41,18 @@ async function trackPoolPrice(poolAddress) {
     const price =
       (Math.pow(sqrtPrice, 2) * Math.pow(10, tick)) / Math.pow(2, 96);
     console.log(`Price of ${token0.symbol}/${token1.symbol}: ${price}`);
+
+    // Check if the pool price has exceeded any of the target prices
+    const targetPrices = POOL_TARGET_PRICES[poolAddress];
+    if (
+      targetPrices &&
+      targetPrices.some((targetPrice) => price >= targetPrice)
+    ) {
+      console.log(
+        `Pool ${poolAddress} has exceeded one or more target prices!`
+      );
+      await callMyFunction();
+    }
   } catch (error) {
     console.error(`Error fetching pool data for ${poolAddress}:`, error);
   }
@@ -44,9 +60,15 @@ async function trackPoolPrice(poolAddress) {
 
 // Function to loop through pool addresses and track their prices
 async function trackPoolPrices() {
-  for (const poolAddress of POOL_ADDRESSES) {
+  for (const poolAddress in POOL_TARGET_PRICES) {
     await trackPoolPrice(poolAddress);
   }
+}
+
+// Function to call your custom function
+async function callMyFunction() {
+  // Replace with your custom function code
+  console.log("Calling my function...");
 }
 
 // Listen for new blocks and update pool prices on each block
