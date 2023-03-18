@@ -101,6 +101,11 @@ async function trackPrices() {
           console.log(
             `Function called with transaction hash: ${txReceipt.transactionHash}`
           );
+          await updateSubgraphWithOpenOrders(
+            targetPrice.user,
+            poolAddress,
+            "Limit Long"
+          );
         } else if (isLimitShort && currentPriceBN.lt(targetPriceBN)) {
           console.log(
             `Target price of ${targetPrice.targetPrice} surpassed for ${targetPrice.user}`
@@ -125,6 +130,11 @@ async function trackPrices() {
           console.log(
             `Function called with transaction hash: ${txReceipt.transactionHash}`
           );
+          await updateSubgraphWithOpenOrders(
+            targetPrice.user,
+            poolAddress,
+            "Limit short"
+          );
         } else {
           console.log(
             `Target price of ${targetPrice.targetPrice} not surpassed for ${targetPrice.user}`
@@ -136,6 +146,38 @@ async function trackPrices() {
 }
 
 //TODO write function to update subgraph
+async function updateSubgraphWithOpenOrders(
+  userAddress,
+  poolAddress,
+  orderType
+) {
+  const query = `
+      mutation {
+        createOpenOrder(
+          user: "${userAddress}",
+          pool: "${poolAddress}",
+          orderType: "${orderType}",
+          timestamp: ${Math.floor(Date.now() / 1000)}
+        ) {
+          id
+          user
+          pool
+          orderType
+          timestamp
+        }
+      }
+    `;
+
+  try {
+    const data = await request(
+      "https://api.thegraph.com/subgraphs/name/YOUR_SUBGRAPH_NAME",
+      query
+    ); // Replace YOUR_SUBGRAPH_NAME with the name of your subgraph
+    console.log("Subgraph updated with open order:", data.createOpenOrder);
+  } catch (error) {
+    console.error("Error updating subgraph with open order:", error);
+  }
+}
 
 web3.eth
   .subscribe("newBlockHeaders", (error, result) => {
