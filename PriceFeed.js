@@ -1,5 +1,6 @@
 const Web3 = require("web3");
 const web3 = new Web3("https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID"); // Replace YOUR_INFURA_PROJECT_ID with your Infura project ID
+const { request } = require("graphql-request");
 
 const poolAddresses = [
   "0x...", // Pool address 1
@@ -8,6 +9,8 @@ const poolAddresses = [
   // Add more pool addresses as needed
 ];
 
+/*
+//TODO import target prices
 const targetPrices = [
   {
     user: "User 1",
@@ -21,10 +24,30 @@ const targetPrices = [
     targetPrice: "2000000000000000000", // Target price in wei
     isSurpassed: false, // True if target price has been surpassed, false otherwise
   },
-  // Add more target prices as needed
 ];
+*/
+
+async function getTargetPricesFromSubgraph() {
+  const query = `
+      query {
+        targetPrices {
+          user
+          pool
+          targetPrice
+          isHigher
+        }
+      }
+    `;
+  const data = await request(
+    "https://api.thegraph.com/subgraphs/name/YOUR_SUBGRAPH_NAME", // Replace YOUR_SUBGRAPH_NAME with the name of your subgraph
+    query
+  );
+
+  return data.targetPrices;
+}
 
 async function trackPrices() {
+  const targetPrices = await getTargetPricesFromSubgraph();
   const blockNumber = await web3.eth.getBlockNumber();
   console.log(`Current block number: ${blockNumber}`);
 
@@ -51,38 +74,75 @@ async function trackPrices() {
         const currentPriceBN = web3.utils.toBN(price);
         const targetPriceBN = web3.utils.toBN(targetPrice.targetPrice);
 
-        if (!targetPrice.isSurpassed && currentPriceBN.gte(targetPriceBN)) {
+        if (
+          targetPrice.isHigher &&
+          !targetPrice.isSurpassed &&
+          currentPriceBN.gte(targetPriceBN)
+        ) {
           console.log(
             `Target price of ${targetPrice.targetPrice} surpassed for ${targetPrice.user}`
           );
           // Execute the function for the user whose target price has been surpassed
-          const contract = new web3.eth.Contract(
-            CONTRACT_ABI,
-            CONTRACT_ADDRESS
-          );
-          const functionData = contract.methods.functionName().encodeABI(); // Replace functionName with the name of the function you want to call
-          const tx = {
-            to: CONTRACT_ADDRESS,
-            data: functionData,
-          };
-          const signedTx = await web3.eth.accounts.signTransaction(
-            tx,
-            PRIVATE_KEY
-          ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
-          const txReceipt = await web3.eth.sendSignedTransaction(
-            signedTx.rawTransaction
-          );
-          console.log(
-            `Function called with transaction hash: ${txReceipt.transactionHash}`
-          );
+          const isLimitShort = targetPrice.limitType === "Limit Short";
+          const isLimitLong = targetPrice.limitType === "Limit Long";
+
+          if (isLimitLong) {
+            const contract = new web3.eth.Contract(
+              CONTRACT_ABI,
+              CONTRACT_ADDRESS
+            );
+            const functionData = contract.methods.functionName().encodeABI(); // Replace functionName with the name of the function you want to call
+            const tx = {
+              to: CONTRACT_ADDRESS,
+              data: functionData,
+            };
+            const signedTx = await web3.eth.accounts.signTransaction(
+              tx,
+              PRIVATE_KEY
+            ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
+            const txReceipt = await web3.eth.sendSignedTransaction(
+              signedTx.rawTransaction
+            );
+            console.log(
+              `Function called with transaction hash: ${txReceipt.transactionHash}`
+            );
+          }
+
           targetPrice.isSurpassed = true;
         } else if (
+          !targetPrice.isHigher &&
           targetPrice.isSurpassed &&
           currentPriceBN.lt(targetPriceBN)
         ) {
           console.log(
             `Target price of ${targetPrice.targetPrice} not surpassed anymore for ${targetPrice.user}`
           );
+          // Execute the function for the user whose target price has not been surpassed anymore
+          const isLimitShort = targetPrice.limitType === "Limit Short";
+          const isLimitLong = targetPrice.limitType === "Limit Long";
+
+          if (isLimitShort) {
+            const contract = new web3.eth.Contract(
+              CONTRACT_ABI,
+              CONTRACT_ADDRESS
+            );
+            const functionData = contract.methods.functionName().encodeABI(); // Replace functionName with the name of the function you want to call
+            const tx = {
+              to: CONTRACT_ADDRESS,
+              data: functionData,
+            };
+            const signedTx = await web3.eth.accounts.signTransaction(
+              tx,
+              PRIVATE_KEY
+            ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
+            const txReceipt = await web3.eth.sendSignedTransaction(
+              signedTx.rawTransaction
+            );
+            console.log(
+              `Function called with transaction hash: ${txReceipt.transactionHash}`
+            );
+          }
+
           targetPrice.isSurpassed = false;
         }
       }
