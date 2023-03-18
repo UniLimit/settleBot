@@ -47,37 +47,55 @@ async function getTargetPricesFromSubgraph() {
 }
 
 async function trackPrices() {
-  const targetPrices = await getTargetPricesFromSubgraph();
-  const blockNumber = await web3.eth.getBlockNumber();
-  console.log(`Current block number: ${blockNumber}`);
+  try {
+    const targetPrices = await getTargetPricesFromSubgraph();
+    const blockNumber = await web3.eth.getBlockNumber();
+    console.log(`Current block number: ${blockNumber}`);
 
-  for (const poolAddress of poolAddresses) {
-    const poolContract = new web3.eth.Contract(
-      UNISWAP_V3_POOL_ABI,
-      poolAddress
-    );
-    const [tick, liquidity] = await Promise.all([
-      poolContract.methods
-        .slot0()
-        .call()
-        .then((slot0) => slot0.tick),
-      poolContract.methods.liquidity().call(),
-    ]);
+    const targetPriceMap = targetPrices.reduce((acc, targetPrice) => {
+      if (!acc[targetPrice.pool]) {
+        acc[targetPrice.pool] = [];
+      }
+      acc[targetPrice.pool].push(targetPrice);
+      return acc;
+    }, {});
 
-    const sqrtPriceX96 = Math.sqrt(Math.pow(1.0001, tick) * 2 ** 96);
-    const price = (liquidity * 2 * sqrtPriceX96) / 2 ** 128;
+    for (const poolAddress of poolAddresses) {
+      const poolContract = new web3.eth.Contract(
+        UNISWAP_V3_POOL_ABI,
+        poolAddress
+      );
+      const [tick, liquidity] = await Promise.all([
+        poolContract.methods
+          .slot0()
+          .call()
+          .then((slot0) => slot0.tick),
+        poolContract.methods.liquidity().call(),
+      ]);
 
-    console.log(`Pool ${poolAddress}: ${price}`);
+      const sqrtPriceX96 = new BigNumber(1.0001)
+        .pow(tick)
+        .times(2 ** 96)
+        .sqrt();
+      const price = sqrtPriceX96
+        .times(liquidity)
+        .times(2)
+        .div(2 ** 128);
 
-    for (const targetPrice of targetPrices) {
-      if (targetPrice.pool === poolAddress) {
-        const currentPriceBN = web3.utils.toBN(price);
+      console.log(`Pool ${poolAddress}: ${price}`);
+
+      const poolTargetPrices = targetPriceMap[poolAddress] || [];
+      for (const targetPrice of poolTargetPrices) {
+        const currentPriceBN = web3.utils.toBN(price.toFixed());
         const targetPriceBN = web3.utils.toBN(targetPrice.targetPrice);
 
         const isLimitShort = targetPrice.limitType === "Limit Short";
         const isLimitLong = targetPrice.limitType === "Limit Long";
 
-        if (isLimitLong && currentPriceBN.gte(targetPriceBN)) {
+        if (
+          (isLimitLong && currentPriceBN.gte(targetPriceBN)) ||
+          (isLimitShort && currentPriceBN.lt(targetPriceBN))
+        ) {
           console.log(
             `Target price of ${targetPrice.targetPrice} surpassed for ${targetPrice.user}`
           );
@@ -101,39 +119,12 @@ async function trackPrices() {
           console.log(
             `Function called with transaction hash: ${txReceipt.transactionHash}`
           );
+
+          // Update subgraph after executing the function
           await updateSubgraphWithOpenOrders(
             targetPrice.user,
             poolAddress,
-            "Limit Long"
-          );
-        } else if (isLimitShort && currentPriceBN.lt(targetPriceBN)) {
-          console.log(
-            `Target price of ${targetPrice.targetPrice} surpassed for ${targetPrice.user}`
-          );
-          // Execute the function for the user whose target price has been surpassed
-          const contract = new web3.eth.Contract(
-            CONTRACT_ABI,
-            CONTRACT_ADDRESS
-          );
-          const functionData = contract.methods.functionName().encodeABI(); // Replace functionName with the name of the function you want to call
-          const tx = {
-            to: CONTRACT_ADDRESS,
-            data: functionData,
-          };
-          const signedTx = await web3.eth.accounts.signTransaction(
-            tx,
-            PRIVATE_KEY
-          ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
-          const txReceipt = await web3.eth.sendSignedTransaction(
-            signedTx.rawTransaction
-          );
-          console.log(
-            `Function called with transaction hash: ${txReceipt.transactionHash}`
-          );
-          await updateSubgraphWithOpenOrders(
-            targetPrice.user,
-            poolAddress,
-            "Limit short"
+            targetPrice.limitType
           );
         } else {
           console.log(
@@ -142,6 +133,8 @@ async function trackPrices() {
         }
       }
     }
+  } catch (error) {
+    console.error("Error in trackPrices:", error);
   }
 }
 
