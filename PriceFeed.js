@@ -34,14 +34,14 @@ async function getTargetPricesFromSubgraph() {
           user
           pool
           targetPrice
-          isHigher
+          limitType
         }
       }
     `;
   const data = await request(
-    "https://api.thegraph.com/subgraphs/name/YOUR_SUBGRAPH_NAME", // Replace YOUR_SUBGRAPH_NAME with the name of your subgraph
+    "https://api.thegraph.com/subgraphs/name/YOUR_SUBGRAPH_NAME",
     query
-  );
+  ); // Replace YOUR_SUBGRAPH_NAME with the name of your subgraph
 
   return data.targetPrices;
 }
