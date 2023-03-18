@@ -13,14 +13,12 @@ const targetPrices = [
     user: "User 1",
     pool: "0x...", // Pool address
     targetPrice: "1000000000000000000", // Target price in wei
-    isHigher: true, // True if target price is higher than current price, false otherwise
     isSurpassed: false, // True if target price has been surpassed, false otherwise
   },
   {
     user: "User 2",
     pool: "0x...", // Pool address
     targetPrice: "2000000000000000000", // Target price in wei
-    isHigher: false, // True if target price is higher than current price, false otherwise
     isSurpassed: false, // True if target price has been surpassed, false otherwise
   },
   // Add more target prices as needed
@@ -53,26 +51,38 @@ async function trackPrices() {
         const currentPriceBN = web3.utils.toBN(price);
         const targetPriceBN = web3.utils.toBN(targetPrice.targetPrice);
 
-        if (
-          targetPrice.isHigher &&
-          !targetPrice.isSurpassed &&
-          currentPriceBN.gte(targetPriceBN)
-        ) {
+        if (!targetPrice.isSurpassed && currentPriceBN.gte(targetPriceBN)) {
           console.log(
             `Target price of ${targetPrice.targetPrice} surpassed for ${targetPrice.user}`
           );
           // Execute the function for the user whose target price has been surpassed
-          // TODO: Implement the function execution here
+          const contract = new web3.eth.Contract(
+            CONTRACT_ABI,
+            CONTRACT_ADDRESS
+          );
+          const functionData = contract.methods.functionName().encodeABI(); // Replace functionName with the name of the function you want to call
+          const tx = {
+            to: CONTRACT_ADDRESS,
+            data: functionData,
+          };
+          const signedTx = await web3.eth.accounts.signTransaction(
+            tx,
+            PRIVATE_KEY
+          ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
+          const txReceipt = await web3.eth.sendSignedTransaction(
+            signedTx.rawTransaction
+          );
+          console.log(
+            `Function called with transaction hash: ${txReceipt.transactionHash}`
+          );
           targetPrice.isSurpassed = true;
         } else if (
-          !targetPrice.isHigher &&
           targetPrice.isSurpassed &&
           currentPriceBN.lt(targetPriceBN)
         ) {
           console.log(
             `Target price of ${targetPrice.targetPrice} not surpassed anymore for ${targetPrice.user}`
           );
-          // TODO: Implement the function execution here
           targetPrice.isSurpassed = false;
         }
       }
