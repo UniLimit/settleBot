@@ -1,12 +1,15 @@
 const Web3 = require("web3");
-const web3 = new Web3("https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID"); // Replace YOUR_INFURA_PROJECT_ID with your Infura project ID
+
 const { request } = require("graphql-request");
+require("dotenv").config();
+const web3 = new Web3(
+  `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
+);
 
 const poolAddresses = [
-  "0x...", // Pool address 1
-  "0x...", // Pool address 2
-  "0x...", // Pool address 3
-  // Add more pool addresses as needed
+  "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", // Pool address USDC/WETH Mainnet
+  //"0x...", // Pool address 2
+  //"0x...", // Pool address 3
 ];
 
 /*
@@ -111,8 +114,8 @@ async function trackPrices() {
           };
           const signedTx = await web3.eth.accounts.signTransaction(
             tx,
-            PRIVATE_KEY
-          ); // Replace PRIVATE_KEY with the private key of the sender's Ethereum account
+            process.env.PRIVATE_KEY
+          );
           const txReceipt = await web3.eth.sendSignedTransaction(
             signedTx.rawTransaction
           );
