@@ -1,10 +1,11 @@
 const Web3 = require("web3");
-
 const { request } = require("graphql-request");
 require("dotenv").config();
 const web3 = new Web3(
   `wss://mainnet.infura.io/ws/v3/${process.env.INFURA_PROJECT_ID}`
 );
+const BigNumber = require("bignumber.js");
+const UNISWAP_V3_POOL_ABI = require("./UniswapV3Pool.json");
 
 const poolAddresses = [
   "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", // Pool address USDC/WETH Mainnet
@@ -52,12 +53,14 @@ async function getTargetPricesFromSubgraph() {
 async function trackPrices() {
   try {
     //const targetPrices = await getTargetPricesFromSubgraph(); // targetprice from subgraph
-    const targetPrices = {
-      user: "0x851dB07Ac4c422010F5dD2a904EC470D660b15e5",
-      pool: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
-      targetPrice: 1000,
-      limitType: "Limit Short",
-    };
+    const targetPrices = [
+      {
+        user: "0x851dB07Ac4c422010F5dD2a904EC470D660b15e5",
+        pool: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+        targetPrice: 1000,
+        limitType: "Limit Short",
+      },
+    ];
     const blockNumber = await web3.eth.getBlockNumber();
     console.log(`Current block number: ${blockNumber}`);
 
@@ -92,11 +95,17 @@ async function trackPrices() {
         .div(2 ** 128);
 
       console.log(`Pool ${poolAddress}: ${price}`);
+      const priceInWei = price.times(10 ** 18);
 
       const poolTargetPrices = targetPriceMap[poolAddress] || [];
       for (const targetPrice of poolTargetPrices) {
-        const currentPriceBN = web3.utils.toBN(price.toFixed());
-        const targetPriceBN = web3.utils.toBN(targetPrice.targetPrice);
+        const decimalFactor = 10 ** 18;
+        const currentPriceBN = web3.utils.toBN(
+          priceInWei.times(decimalFactor).integerValue().toString()
+        );
+        const targetPriceBN = web3.utils.toBN(
+          targetPrice.targetPrice * decimalFactor
+        );
 
         const isLimitShort = targetPrice.limitType === "Limit Short";
         const isLimitLong = targetPrice.limitType === "Limit Long";
