@@ -3,7 +3,7 @@ const Web3 = require("web3");
 const { request } = require("graphql-request");
 require("dotenv").config();
 const web3 = new Web3(
-  `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
+  `wss://mainnet.infura.io/ws/v3/${process.env.INFURA_PROJECT_ID}`
 );
 
 const poolAddresses = [
@@ -51,7 +51,13 @@ async function getTargetPricesFromSubgraph() {
 
 async function trackPrices() {
   try {
-    const targetPrices = await getTargetPricesFromSubgraph();
+    //const targetPrices = await getTargetPricesFromSubgraph(); // targetprice from subgraph
+    const targetPrices = {
+      user: "0x851dB07Ac4c422010F5dD2a904EC470D660b15e5",
+      pool: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      targetPrice: 1000,
+      limitType: "Limit Short",
+    };
     const blockNumber = await web3.eth.getBlockNumber();
     console.log(`Current block number: ${blockNumber}`);
 
@@ -124,11 +130,13 @@ async function trackPrices() {
           );
 
           // Update subgraph after executing the function
+          /*
           await updateSubgraphWithOpenOrders(
             targetPrice.user,
             poolAddress,
             targetPrice.limitType
           );
+          */
         } else {
           console.log(
             `Target price of ${targetPrice.targetPrice} not surpassed for ${targetPrice.user}`
