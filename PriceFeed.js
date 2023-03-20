@@ -192,10 +192,15 @@ async function updateSubgraphWithOpenOrders(
   }
 }
 
+let currentBlockNumber = null;
+
 web3.eth
   .subscribe("newBlockHeaders", (error, result) => {
     if (!error) {
-      trackPrices();
+      if (currentBlockNumber !== result.number) {
+        currentBlockNumber = result.number;
+        trackPrices();
+      }
     } else {
       console.error(error);
     }
