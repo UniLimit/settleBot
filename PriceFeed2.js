@@ -121,7 +121,8 @@ async function processLimitOrders() {
 
 //subscribe to blocks
 let isProcessing = false;
-
+//block subscription for 1 block only. Skips later blocks if not done processing
+/*
 web3.eth
   .subscribe("newBlockHeaders", async (error, blockHeader) => {
     if (error) {
@@ -142,6 +143,41 @@ web3.eth
       }
     } else {
       console.log("Already processing limit orders. Skipping this block.");
+    }
+  })
+  .on("error", (error) => {
+    console.error("Error in new block headers subscription:", error);
+  });
+  */
+
+//block subscription with paralell block processing.
+//This implementation uses a Set to store the block numbers being processed.
+//When a new block is received, it checks if the block number is already in the set.
+//If it's not in the set, it adds the block number to the set and starts processing
+//the limit orders. Once the processing is complete, it removes the block number from the set.
+const blocksBeingProcessed = new Set();
+
+web3.eth
+  .subscribe("newBlockHeaders", async (error, blockHeader) => {
+    if (error) {
+      console.error("Error subscribing to new block headers:", error);
+      return;
+    }
+
+    console.log(`New block received. Block #${blockHeader.number}`);
+
+    if (!blocksBeingProcessed.has(blockHeader.number)) {
+      blocksBeingProcessed.add(blockHeader.number);
+
+      try {
+        await processLimitOrders();
+      } catch (error) {
+        console.error("Error processing limit orders:", error);
+      } finally {
+        blocksBeingProcessed.delete(blockHeader.number);
+      }
+    } else {
+      console.log(`Block #${blockHeader.number} is already being processed.`);
     }
   })
   .on("error", (error) => {
