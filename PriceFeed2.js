@@ -8,6 +8,7 @@ const provider = new Web3.providers.WebsocketProvider(
 const web3 = new Web3(provider);
 const BigNumber = require("bignumber.js");
 const UNISWAP_V3_POOL_ABI = require("./UniswapV3Pool.json");
+const ERC20_ABI = require("./ERC20abi.json");
 
 //get open orders data
 async function getOpenLimitOrdersFromSubgraph() {
@@ -35,17 +36,30 @@ async function getPoolPriceByPoolAddress(poolAddress) {
       poolContract.methods.token1().call(),
     ]);
 
+    const token0Contract = new web3.eth.Contract(ERC20_ABI, token0);
+    const token1Contract = new web3.eth.Contract(ERC20_ABI, token1);
+    const [token0Decimals, token1Decimals] = await Promise.all([
+      token0Contract.methods.decimals().call(),
+      token1Contract.methods.decimals().call(),
+    ]);
+    const decimalsDifference =
+      parseInt(token1Decimals) - parseInt(token0Decimals);
+    const adjustmentFactor = new BigNumber(10).pow(decimalsDifference);
+
     const [slot0] = await Promise.all([poolContract.methods.slot0().call()]);
 
     const sqrtPriceX96 = new BigNumber(slot0.sqrtPriceX96.toString());
     const price = sqrtPriceX96.div(2 ** 96).pow(2);
     const priceInWei = price
-      .times(10 ** 18)
-      .toFixed(0)
+      .times(10 ** token1Decimals)
+      .div(10 ** token0Decimals)
+      .toFixed(5)
       .toString();
     const invertedPriceInWei = new BigNumber(10 ** 36)
       .div(priceInWei)
-      .toFixed(0)
+      .times(10 ** token0Decimals)
+      .div(10 ** token1Decimals)
+      .toFixed(5)
       .toString();
 
     console.log(`Pool ${poolAddress}: ${priceInWei}`);
@@ -96,9 +110,10 @@ async function processLimitOrders() {
 }
 
 //subscribe to blocks
-let isProcessing = false;
+
 //block subscription for 1 block only. Skips later blocks if not done processing
 /*
+let isProcessing = false;
 web3.eth
   .subscribe("newBlockHeaders", async (error, blockHeader) => {
     if (error) {
