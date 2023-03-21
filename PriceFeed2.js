@@ -12,7 +12,7 @@ const ERC20_ABI = require("./ERC20abi.json");
 
 //get open orders data
 async function getOpenLimitOrdersFromSubgraph() {
-  // Replace this with the actual API call to fetch data from the subgraph. This is a mock data structure
+  //TODO Replace this with the actual API call to fetch data from the subgraph. This is a mock data structure
   return [
     {
       user: "0x851dB07Ac4c422010F5dD2a904EC470D660b15e5",
@@ -53,13 +53,13 @@ async function getPoolPriceByPoolAddress(poolAddress) {
     const priceInWei = price
       .times(10 ** token1Decimals)
       .div(10 ** token0Decimals)
-      .toFixed(5)
+      .toFixed(0)
       .toString();
     const invertedPriceInWei = new BigNumber(10 ** 36)
       .div(priceInWei)
       .times(10 ** token0Decimals)
       .div(10 ** token1Decimals)
-      .toFixed(5)
+      .toFixed(0)
       .toString();
 
     console.log(`Pool ${poolAddress}: ${priceInWei}`);
@@ -71,9 +71,17 @@ async function getPoolPriceByPoolAddress(poolAddress) {
 }
 
 //call smart contrat settle function to settle order
-async function executeLimitOrder(user, poolAddress, limitType) {
-  // Replace this with the actual function execution logic
-  console.log(`Executing ${limitType} for user ${user} on pool ${poolAddress}`);
+async function executeLimitOrder(
+  user,
+  poolAddress,
+  limitType,
+  currentPrice,
+  targetPrice
+) {
+  //TODO Replace this with the actual function execution logic
+  console.log(
+    `Executing ${limitType} for user ${user} on pool ${poolAddress} at targetprice ${targetPrice} (currentprice: ${currentPrice})`
+  );
 }
 
 //check if limit order should be settled
@@ -99,7 +107,13 @@ async function processLimitOrders() {
         (isLimitShort && currentPriceBN.lt(targetPriceBN))
       ) {
         // Execute the limit order
-        await executeLimitOrder(user, pool, limitType);
+        await executeLimitOrder(
+          user,
+          pool,
+          limitType,
+          currentPrice,
+          targetPrice
+        );
       } else {
         console.log(`Target price not met for ${user} on pool ${pool}`);
       }
