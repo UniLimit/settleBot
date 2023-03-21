@@ -36,37 +36,12 @@ async function getPoolPriceByPoolAddress(poolAddress) {
       poolContract.methods.tickSpacing().call(),
     ]);
 
-    const [tick] = await Promise.all([
-      poolContract.methods
-        .slot0()
-        .call()
-        .then((slot0) => slot0.tick),
-    ]);
+    const [slot0] = await Promise.all([poolContract.methods.slot0().call()]);
 
-    const tickLower = Math.floor(tick / tickSpacing) * tickSpacing;
-    const tickUpper = Math.ceil(tick / tickSpacing) * tickSpacing;
-
-    const [position] = await Promise.all([
-      poolContract.methods
-        .positions(
-          web3.utils.keccak256(
-            web3.eth.abi.encodeParameters(
-              ["address", "int24", "int24"],
-              [poolAddress, tickLower, tickUpper]
-            )
-          )
-        )
-        .call(),
-    ]);
-
-    const liquidity = position.liquidity;
-    const sqrtPriceX96 = new BigNumber(1.0001)
-      .pow(tick)
-      .times(2 ** 96)
-      .sqrt();
+    const sqrtPriceX96 = new BigNumber(slot0.sqrtPriceX96.toString());
     const price = sqrtPriceX96
-      .times(liquidity)
-      .times(2)
+      .div(2 ** 48)
+      .pow(2)
       .div(2 ** 128);
     const priceInWei = price
       .times(10 ** 18)
