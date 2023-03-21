@@ -57,7 +57,9 @@ async function trackPrices() {
       {
         user: "0x851dB07Ac4c422010F5dD2a904EC470D660b15e5",
         pool: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
-        targetPrice: 1000,
+        targetPrice: new BigNumber(1000)
+          .times(new BigNumber(10).pow(18))
+          .toFixed(),
         limitType: "Limit Short",
       },
     ];
@@ -95,17 +97,15 @@ async function trackPrices() {
         .div(2 ** 128);
 
       console.log(`Pool ${poolAddress}: ${price}`);
-      const priceInWei = price.times(10 ** 18);
+      const priceInWei = price
+        .times(10 ** 18)
+        .toFixed(0)
+        .toString();
 
       const poolTargetPrices = targetPriceMap[poolAddress] || [];
       for (const targetPrice of poolTargetPrices) {
-        const decimalFactor = 10 ** 18;
-        const currentPriceBN = web3.utils.toBN(
-          priceInWei.times(decimalFactor).integerValue().toString()
-        );
-        const targetPriceBN = web3.utils.toBN(
-          targetPrice.targetPrice * decimalFactor
-        );
+        const currentPriceBN = web3.utils.toBN(priceInWei);
+        const targetPriceBN = web3.utils.toBN(targetPrice.targetPrice);
 
         const isLimitShort = targetPrice.limitType === "Limit Short";
         const isLimitLong = targetPrice.limitType === "Limit Long";
@@ -191,15 +191,15 @@ async function updateSubgraphWithOpenOrders(
     console.error("Error updating subgraph with open order:", error);
   }
 }
-
-let currentBlockNumber = null;
+let lastProcessedBlock = 0;
 
 web3.eth
-  .subscribe("newBlockHeaders", (error, result) => {
+  .subscribe("newBlockHeaders", async (error, blockHeader) => {
     if (!error) {
-      if (currentBlockNumber !== result.number) {
-        currentBlockNumber = result.number;
-        trackPrices();
+      const currentBlockNumber = blockHeader.number;
+      if (currentBlockNumber > lastProcessedBlock) {
+        await trackPrices();
+        lastProcessedBlock = currentBlockNumber;
       }
     } else {
       console.error(error);
