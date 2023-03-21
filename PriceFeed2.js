@@ -30,25 +30,26 @@ async function getPoolPriceByPoolAddress(poolAddress) {
       poolAddress
     );
 
-    const [token0, token1, tickSpacing] = await Promise.all([
+    const [token0, token1] = await Promise.all([
       poolContract.methods.token0().call(),
       poolContract.methods.token1().call(),
-      poolContract.methods.tickSpacing().call(),
     ]);
 
     const [slot0] = await Promise.all([poolContract.methods.slot0().call()]);
 
     const sqrtPriceX96 = new BigNumber(slot0.sqrtPriceX96.toString());
-    const price = sqrtPriceX96
-      .div(2 ** 48)
-      .pow(2)
-      .div(2 ** 128);
+    const price = sqrtPriceX96.div(2 ** 96).pow(2);
     const priceInWei = price
       .times(10 ** 18)
       .toFixed(0)
       .toString();
+    const invertedPriceInWei = new BigNumber(10 ** 36)
+      .div(priceInWei)
+      .toFixed(0)
+      .toString();
 
     console.log(`Pool ${poolAddress}: ${priceInWei}`);
+    console.log(`Pool ${poolAddress}: ${invertedPriceInWei}`);
     return priceInWei;
   } catch (error) {
     console.error("Error fetching pool data:", error);
